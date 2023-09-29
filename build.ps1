@@ -221,7 +221,15 @@ function BuildLinuxKernel {
 	$buildDirectory = (Get-ChildItem -Path "$tempDirectory" -Directory -Force -ErrorAction SilentlyContinue)[0]
 	Set-Location -Path "$buildDirectory"
 
-	# Configuring the source code.
+#	# Configuring the source code.
+#	Write-Host "  Configuring"
+#	Copy-Item -Path "$projectRootDirectory/Hacks/linux-kernel-config.txt" -Destination "$buildDirectory/.config" -Force
+#	$exitCode = Execute "make" "ARCH=x86_64 oldconfig" $false 0
+#	if ($exitCode -ne 0) {
+#		EndProgram $exitCode
+#	}
+
+ 	# Configuring the source code.
 	# Note that "defconfig" does not include FrameBuffer and graphics drivers.
 	Write-Host "  Configuring"
 	$exitCode = Execute "make" "ARCH=x86_64 defconfig" $false 0
@@ -229,21 +237,45 @@ function BuildLinuxKernel {
 		EndProgram $exitCode
 	}
 
+	# Make a copy of the generated configuration, so it can be merged with the additional options.
+	Copy-Item -Path "$buildDirectory/.config" -Destination "$buildDirectory/.config-defconfig" -Force
+
 	# Enable additional options.
-	# "merge_config.sh" usage: $0 [OPTIONS] [CONFIG [...]]"
-	#   -h    display this help text"
-	#   -m    only merge the fragments, do not execute the make command"
-	#   -n    use allnoconfig instead of alldefconfig"
-	#   -r    list redundant entries when merging fragments"
-	#   -y    make builtin have precedence over modules"
-	#   -O    dir to put generated output files.  Consider setting \$KCONFIG_CONFIG instead."
-	#   -s    strict mode. Fail if the fragment redefines any value."
-	#   -Q    disable warning messages for overridden options."
 	Write-Host "  Configuring additional options"
-	$exitCode = Execute "./scripts/kconfig/merge_config.sh" "$projectRootDirectory/Hacks/linux-kernel-additional-config-options.txt" $false 0
+	$exitCode = Execute "./scripts/kconfig/merge_config.sh" "-y ""$buildDirectory/.config-defconfig"" ""$projectRootDirectory/Hacks/linux-kernel-additional-config-options.txt""" $false 0
 	if ($exitCode -ne 0) {
 		EndProgram $exitCode
 	}
+
+	# #### THIS DO NOT WORK #####
+	# The "make" call will prompt for missing configuration dependencies!
+	# # Enable additional options.
+	# Write-Host "  Configuring additional options"
+	# foreach ($kernelAdditionalOptionLine in Get-Content "$projectRootDirectory/Hacks/linux-kernel-additional-config-options.txt") {
+	# 	if (($kernelAdditionalOptionLine.StartsWith("#") -eq $false) -and ($kernelAdditionalOptionLine.Trim() -ne "")) {
+	# 		$kernelAdditionalOption = $kernelAdditionalOptionLine -split "="
+	# 		$option = $kernelAdditionalOption[0]
+	# 		$action = $kernelAdditionalOption[1]
+	# 		switch ($action) {
+	# 			{ @("y", "yes", "enable") -contains $_ } {
+	# 				#Write-Host "    - $option"
+	# 				$exitCode = Execute "./scripts/config" "--enable $option" $false 0
+	# 				if ($exitCode -ne 0) {
+	# 					Write-Host "  Error enabeling Linux kernel option '$option'." -ForegroundColor Red
+	# 					EndProgram $exitCode
+	# 				}
+	# 			}
+	# 		}
+	# 	}
+	# }
+	#
+	# # Defaults on missing options.
+	# # Without this, "make" will prompt for answers.
+	# Write-Host "  Configuring additional default options"
+	# $exitCode = Execute "make" "ARCH=x86_64 alldefconfig" $false 0
+	# if ($exitCode -ne 0) {
+	# 	EndProgram $exitCode
+	# }
 
 	# Compiling the source code.
 	Write-Host "  Compiling"
