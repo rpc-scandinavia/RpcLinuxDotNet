@@ -1,6 +1,6 @@
 # RPC Linux .NET
 
-This project is my attempt trying to create a small Linux system that is able to execute the .NET runtime and non graphical .NET programs.
+This project is my attempt to create a small Linux system that is able to execute the .NET runtime and non graphical .NET programs.
 
 Currently the build includes:
 
